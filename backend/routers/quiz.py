@@ -20,6 +20,7 @@ class QuizGenerateRequest(BaseModel):
     pdf_id: str
     topic: str
     num_questions: int = 5
+    difficulty: str = "medium"  # easy, medium, or hard
 
 
 class QuizSubmitRequest(BaseModel):
@@ -72,7 +73,8 @@ async def generate_quiz(
     questions = await groq_client.generate_quiz(
         context=context,
         topic=request.topic,
-        num_questions=request.num_questions
+        num_questions=request.num_questions,
+        difficulty=request.difficulty
     )
     
     if not questions:
@@ -133,10 +135,12 @@ async def submit_quiz(
         if user_answer.strip() == correct_answer.strip():
             correct_count += 1
         else:
+            # Include concept tag for better weakness tracking
             incorrect_answers.append({
                 "question": question["question"],
                 "user_answer": user_answer,
-                "correct_answer": correct_answer
+                "correct_answer": correct_answer,
+                "concept": question.get("concept", quiz.topic)
             })
     
     # Calculate score
@@ -150,7 +154,10 @@ async def submit_quiz(
     # Analyze weaknesses
     weak_concepts = []
     if incorrect_answers:
-        weak_concepts = await groq_client.analyze_weaknesses(incorrect_answers)
+        # Use concept tags from questions first, then analyze with Groq
+        concept_tags = [ans.get("concept", "") for ans in incorrect_answers if ans.get("concept")]
+        groq_concepts = await groq_client.analyze_weaknesses(incorrect_answers)
+        weak_concepts = list(set(concept_tags + groq_concepts))  # Combine and remove duplicates
         
         # Update weakness tracking
         for concept in weak_concepts:

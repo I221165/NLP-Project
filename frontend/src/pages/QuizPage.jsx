@@ -13,6 +13,7 @@ function QuizPage() {
     const [selectedPdf, setSelectedPdf] = useState(pdfId || '');
     const [topic, setTopic] = useState('');
     const [numQuestions, setNumQuestions] = useState(5);
+    const [difficulty, setDifficulty] = useState('medium');
     const [quiz, setQuiz] = useState(null);
     const [userAnswers, setUserAnswers] = useState({});
     const [loading, setLoading] = useState(false);
@@ -37,7 +38,7 @@ function QuizPage() {
         setResult(null);
 
         try {
-            const response = await quizApi.generate(selectedPdf, topic, numQuestions);
+            const response = await quizApi.generate(selectedPdf, topic, numQuestions, difficulty);
             setQuiz(response.data);
             setUserAnswers({});
         } catch (error) {
@@ -105,6 +106,32 @@ function QuizPage() {
                             </div>
 
                             <div>
+                                <label className="block text-sm font-semibold mb-2">Difficulty Level</label>
+                                <div className="grid grid-cols-3 gap-3">
+                                    {['easy', 'medium', 'hard'].map((level) => (
+                                        <button
+                                            key={level}
+                                            type="button"
+                                            onClick={() => setDifficulty(level)}
+                                            className={`p-4 rounded-xl border-2 transition-all ${difficulty === level
+                                                    ? 'border-primary bg-primary/10 shadow-md'
+                                                    : 'border-neutral-200 hover:border-primary/50'
+                                                }`}
+                                        >
+                                            <span className="block font-semibold capitalize mb-1">{level}</span>
+                                            <span className="text-xs text-neutral-600">
+                                                {level === 'easy'
+                                                    ? 'Straight from text'
+                                                    : level === 'medium'
+                                                        ? 'Needs understanding'
+                                                        : 'Fully conceptual'}
+                                            </span>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div>
                                 <label className="block text-sm font-semibold mb-2">Number of Questions</label>
                                 <input
                                     type="number"
@@ -126,7 +153,10 @@ function QuizPage() {
                     <div className="space-y-6">
                         <div className="card bg-primary text-white">
                             <h3 className="text-xl font-bold mb-2">{quiz.topic}</h3>
-                            <p>{quiz.questions.length} questions</p>
+                            <p>
+                                {quiz.questions.length} questions • Difficulty:{' '}
+                                <span className="capitalize">{difficulty}</span>
+                            </p>
                         </div>
 
                         {quiz.questions.map((q, idx) => (
@@ -134,6 +164,11 @@ function QuizPage() {
                                 <p className="font-semibold mb-4">
                                     {idx + 1}. {q.question}
                                 </p>
+                                {q.concept && (
+                                    <p className="text-xs text-neutral-500 mb-3">
+                                        📌 Concept: {q.concept}
+                                    </p>
+                                )}
                                 <div className="space-y-2">
                                     {q.options.map((option, optIdx) => (
                                         <label
@@ -183,7 +218,7 @@ function QuizPage() {
 
                         {result.weak_concepts && result.weak_concepts.length > 0 && (
                             <div className="card">
-                                <h4 className="font-semibold mb-3">Areas to Review:</h4>
+                                <h4 className="font-semibold mb-3">📌 Concepts to Review:</h4>
                                 <div className="flex flex-wrap gap-2">
                                     {result.weak_concepts.map((concept, idx) => (
                                         <span key={idx} className="badge-pill bg-error/10 text-error">
@@ -191,6 +226,9 @@ function QuizPage() {
                                         </span>
                                     ))}
                                 </div>
+                                <p className="text-sm text-neutral-600 mt-4">
+                                    💡 These topics were identified from your incorrect answers. Review the PDF and take focused quizzes on these concepts!
+                                </p>
                             </div>
                         )}
 

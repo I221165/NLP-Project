@@ -59,21 +59,45 @@ Provide the summary in JSON format:
             print(f"Groq summarization error: {e}")
             return {"error": str(e)}
     
-    async def generate_quiz(self, context: str, topic: str, num_questions: int = 5) -> List[Dict]:
-        """Generate quiz questions using Groq"""
-        system_prompt = f"""You are an expert quiz creator. Generate {num_questions} multiple-choice questions based on the provided document content about {topic}.
+    async def generate_quiz(self, context: str, topic: str, num_questions: int = 5, difficulty: str = "medium") -> List[Dict]:
+        """Generate quiz questions using Groq with difficulty levels"""
+        
+        # Define difficulty parameters
+        difficulty_guidelines = {
+            "easy": """
+- Questions should be straightforward and directly from the text
+- Test basic recall and understanding
+- Answers should be clearly stated in the document
+- Focus on definitions, facts, and simple concepts""",
+            "medium": """
+- Questions require understanding and application
+- Combine multiple concepts from the text
+- Test comprehension beyond simple recall
+- May require inference from provided information""",
+            "hard": """
+- Fully conceptual and analytical questions
+- Require deep understanding and critical thinking
+- Test ability to apply knowledge in new contexts
+- May involve comparing, contrasting, or synthesizing concepts"""
+        }
+        
+        diff_guide = difficulty_guidelines.get(difficulty.lower(), difficulty_guidelines["medium"])
+        
+        system_prompt = f"""You are an expert quiz creator. Generate {num_questions} multiple-choice questions at {difficulty.upper()} difficulty level.
+
+DIFFICULTY GUIDELINES:{diff_guide}
 
 Requirements:
 - Questions must be based on factual information from the document
 - Create 4 plausible options (A, B, C, D) for each question
 - Ensure only ONE correct answer per question
 - Provide brief explanations for the correct answers
-- Questions should test understanding, not just memorization
-- Vary difficulty levels
+- Tag each question with specific concept/topic it tests
+- All questions should be at {difficulty.upper()} difficulty level
 
 Return ONLY valid JSON array, no additional text."""
 
-        user_prompt = f"""Based on this content about {topic}, create {num_questions} quiz questions:
+        user_prompt = f"""Based on this content about {topic}, create {num_questions} {difficulty.upper()} difficulty quiz questions:
 
 {context[:3000]}
 
@@ -84,7 +108,9 @@ Format (JSON array):
     "question": "Question text?",
     "options": ["Option A", "Option B", "Option C", "Option D"],
     "correct_answer": "Option A",
-    "explanation": "Brief explanation of why this is correct"
+    "explanation": "Brief explanation of why this is correct",
+    "concept": "Specific concept/topic this question tests (e.g., 'supervised learning', 'data preprocessing')",
+    "difficulty": "{difficulty}"
   }}
 ]"""
 

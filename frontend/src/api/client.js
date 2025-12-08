@@ -81,11 +81,12 @@ export const chat = {
 
 // Quiz API
 export const quiz = {
-    generate: (pdfId, topic, numQuestions = 5) =>
+    generate: (pdfId, topic, numQuestions = 5, difficulty = 'medium') =>
         apiClient.post('/quiz/generate', {
             pdf_id: pdfId,
             topic,
             num_questions: numQuestions,
+            difficulty,
         }),
 
     submit: (quizId, userAnswers) =>
