@@ -94,15 +94,19 @@ function QuizPage() {
                             </div>
 
                             <div>
-                                <label className="block text-sm font-semibold mb-2">Topic</label>
+                                <label className="block text-sm font-semibold mb-2">
+                                    Topic (Optional)
+                                </label>
                                 <input
                                     type="text"
                                     value={topic}
                                     onChange={(e) => setTopic(e.target.value)}
-                                    required
                                     className="input-field"
-                                    placeholder="e.g., Machine Learning basics"
+                                    placeholder="Leave empty to quiz on entire PDF content"
                                 />
+                                <p className="text-xs text-neutral-500 mt-1">
+                                    💡 Specify a topic for focused questions, or leave empty to generate from entire PDF
+                                </p>
                             </div>
 
                             <div>

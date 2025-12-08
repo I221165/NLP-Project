@@ -18,7 +18,7 @@ router = APIRouter(prefix="/quiz", tags=["Quiz"])
 # Pydantic models
 class QuizGenerateRequest(BaseModel):
     pdf_id: str
-    topic: str
+    topic: str = ""  # Optional - will use PDF content if not provided
     num_questions: int = 5
     difficulty: str = "medium"  # easy, medium, or hard
 
@@ -61,18 +61,21 @@ async def generate_quiz(
             detail="PDF not found"
         )
     
-    # Get relevant context
+    # Use filename as topic if not provided
+    quiz_topic = request.topic.strip() if request.topic.strip() else f"content from {pdf.filename}"
+    
+    # Get relevant context (if no topic, get general content from PDF)
     context = await rag_service.get_document_context(
         user_id=str(current_user.id),
         file_id=pdf.file_id,
-        topic=request.topic,
-        top_k=10
+        topic=quiz_topic if request.topic.strip() else "",  # Empty topic = broader retrieval
+        top_k=15  # Get more chunks for general quizzes
     )
     
     # Generate quiz using Groq
     questions = await groq_client.generate_quiz(
         context=context,
-        topic=request.topic,
+        topic=quiz_topic,
         num_questions=request.num_questions,
         difficulty=request.difficulty
     )
@@ -87,7 +90,7 @@ async def generate_quiz(
     quiz = QuizModel(
         user_id=current_user.id,
         pdf_id=pdf.id,
-        topic=request.topic,
+        topic=quiz_topic,
         questions=questions,
         user_answers={},
         total_questions=len(questions)
@@ -100,7 +103,7 @@ async def generate_quiz(
     return {
         "quiz_id": str(quiz.id),
         "questions": questions,
-        "topic": request.topic
+        "topic": quiz_topic
     }
 
 
