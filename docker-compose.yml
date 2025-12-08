@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  # ChromaDB Vector Database
+  chromadb:
+    image: chromadb/chroma:latest
+    container_name: coursemaster-chromadb
+    ports:
+      - "8001:8000"
+    volumes:
+      - chroma_data:/chroma/chroma
+    environment:
+      - IS_PERSISTENT=TRUE
+    networks:
+      - coursemaster-network
+
+  # FastAPI Backend
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: coursemaster-backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+      - upload_data:/app/uploads
+    environment:
+      - CHROMA_HOST=chromadb
+      - CHROMA_PORT=8000
+    depends_on:
+      - chromadb
+    networks:
+      - coursemaster-network
+    restart: unless-stopped
+
+  # React Frontend (for production)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: coursemaster-frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+    networks:
+      - coursemaster-network
+    restart: unless-stopped
+
+volumes:
+  chroma_data:
+    driver: local
+  upload_data:
+    driver: local
+
+networks:
+  coursemaster-network:
+    driver: bridge
