@@ -118,8 +118,8 @@ function QuizPage() {
                                             type="button"
                                             onClick={() => setDifficulty(level)}
                                             className={`p-4 rounded-xl border-2 transition-all ${difficulty === level
-                                                    ? 'border-primary bg-primary/10 shadow-md'
-                                                    : 'border-neutral-200 hover:border-primary/50'
+                                                ? 'border-primary bg-primary/10 shadow-md'
+                                                : 'border-neutral-200 hover:border-primary/50'
                                                 }`}
                                         >
                                             <span className="block font-semibold capitalize mb-1">{level}</span>
@@ -136,15 +136,20 @@ function QuizPage() {
                             </div>
 
                             <div>
-                                <label className="block text-sm font-semibold mb-2">Number of Questions</label>
-                                <input
-                                    type="number"
-                                    min="1"
-                                    max="10"
-                                    value={numQuestions}
-                                    onChange={(e) => setNumQuestions(parseInt(e.target.value))}
-                                    className="input-field"
-                                />
+                                <div>
+                                    <label className="block text-sm font-semibold mb-2">Number of Questions</label>
+                                    <input
+                                        type="number"
+                                        min="1"
+                                        max="20"
+                                        value={numQuestions}
+                                        onChange={(e) => setNumQuestions(parseInt(e.target.value))}
+                                        className="input-field"
+                                    />
+                                    <p className="text-xs text-neutral-500 mt-1">
+                                        💡 Use 20 questions for comprehensive coverage of entire document
+                                    </p>
+                                </div>
                             </div>
 
                             <button type="submit" disabled={loading} className="btn-primary w-full">
@@ -178,8 +183,8 @@ function QuizPage() {
                                         <label
                                             key={optIdx}
                                             className={`block p-3 border-2 rounded-lg cursor-pointer transition-all ${userAnswers[q.id] === option
-                                                    ? 'border-primary bg-primary/10'
-                                                    : 'border-neutral-200 hover:border-primary/50'
+                                                ? 'border-primary bg-primary/10'
+                                                : 'border-neutral-200 hover:border-primary/50'
                                                 }`}
                                         >
                                             <input

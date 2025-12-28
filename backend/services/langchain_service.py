@@ -17,8 +17,11 @@ from langchain_community.vectorstores import Chroma
 from langchain.embeddings import HuggingFaceEmbeddings
 from typing import List, Dict, Any
 import json
+from logging_config import get_logger
 
 from config import settings
+
+logger = get_logger(__name__)
 
 
 class LangChainService:
@@ -106,78 +109,118 @@ Answer:"""
         difficulty: str
     ) -> List[Dict]:
         """
-        Use LangChain agent to generate quiz questions
-        
-        Args:
-            context: Document context
-            topic: Quiz topic
-            num_questions: Number of questions
-            difficulty: easy/medium/hard
-        
-        Returns:
-            List of quiz questions
+        Use LangChain agent to generate HIGH-QUALITY quiz questions
         """
-        # Define difficulty guidelines
+        # Define difficulty guidelines (enhanced)
         difficulty_guidelines = {
-            "easy": "straightforward questions directly from text",
-            "medium": "questions requiring understanding and application",
-            "hard": "fully conceptual and analytical questions"
+            "easy": """
+EASY Questions (Basic Recall):
+- Directly stated facts and definitions from the text
+- Simple true/false or identification questions  
+- Test basic understanding and memorization
+- Answer should be explicitly in the document
+- No complex reasoning required
+Examples: "What is X?", "Define Y", "Which of these is mentioned?"
+""",
+            "medium": """
+MEDIUM Questions (Understanding & Application):
+- Require comprehension beyond simple recall
+- Combine 2-3 related concepts
+- Test ability to apply knowledge
+- May require inference from context
+- Compare/contrast related ideas
+Examples: "How does X relate to Y?", "What would happen if...?", "Why is X important?"
+""",
+            "hard": """
+HARD Questions (Analysis & Synthesis):
+- Deeply conceptual and analytical
+- Require critical thinking and synthesis
+- Apply concepts to new scenarios
+- Evaluate trade-offs or implications
+- Multi-step reasoning required
+Examples: "Analyze the relationship between...", "Evaluate the impact of...", "Synthesize..."
+"""
         }
         
         diff_guide = difficulty_guidelines.get(difficulty.lower(), difficulty_guidelines["medium"])
         
-        # Create structured output prompt
+        # Enhanced prompt for quality
         prompt = ChatPromptTemplate.from_template("""
-You are an expert quiz creator. Generate {num_questions} multiple-choice questions at {difficulty} difficulty level.
+You are an EXPERT QUIZ CREATOR specializing in {difficulty} difficulty questions.
 
-Guidelines: {diff_guide}
+YOUR MISSION: Create {num_questions} HIGH-QUALITY multiple-choice questions that truly test student understanding.
 
-Content to create quiz from:
-{context}
+DIFFICULTY LEVEL: {difficulty}
+{diff_guide}
 
+CRITICAL QUALITY REQUIREMENTS:
+✓ Questions MUST be based on FACTUAL information from the provided content
+✓ Create 4 PLAUSIBLE options - make wrong answers tempting but clearly wrong
+✓ Ensure ONLY ONE unambiguously correct answer
+✓ Avoid "all of the above" or "none of the above" options
+✓ Questions should be clear, specific, and well-written
+✓ Test different aspects of the topic (don't repeat similar questions)
+✓ Provide detailed explanations for WHY the answer is correct
+✓ Tag each question with the specific concept/topic it tests
+
+CONTENT TO CREATE QUIZ FROM:
 Topic: {topic}
 
-Generate questions in this EXACT JSON format:
+Document Content (use ALL relevant information):
+{context}
+
+OUTPUT FORMAT (STRICT JSON):
 [
   {{
     "id": 1,
-    "question": "Question text?",
+    "question": "Clear, specific question text?",
     "options": ["Option A", "Option B", "Option C", "Option D"],
-    "correct_answer": "Option A",
-    "explanation": "Brief explanation",
-    "concept": "Specific concept tested",
+    "correct_answer": "The exact text of the correct option",
+    "explanation": "Detailed explanation of why this is correct and why others are wrong",
+    "concept": "Specific concept this question tests",
     "difficulty": "{difficulty}"
-  }}
+  }},
+  ...
 ]
 
-Return ONLY valid JSON array, no additional text.
+IMPORTANT: Return ONLY the JSON array. No markdown, no extra text, just valid JSON.
 """)
         
         # Create chain
         chain = prompt | self.llm
         
         # Invoke
-        response = await chain.ainvoke({
-            "num_questions": num_questions,
-            "difficulty": difficulty,
-            "diff_guide": diff_guide,
-            "context": context[:3000],
-            "topic": topic
-        })
-        
-        # Parse response
-        content = response.content
         try:
-            # Remove markdown code blocks if present
+            response = await chain.ainvoke({
+                "num_questions": num_questions,
+                "difficulty": difficulty,
+                "diff_guide": diff_guide,
+                "context": context[:6000],  # Increased for 20-question quizzes
+                "topic": topic
+            })
+            
+            # Parse response
+            content = response.content
+            
+            # Clean JSON
             if "```json" in content:
                 content = content.split("```json")[1].split("```")[0]
             elif "```" in content:
                 content = content.split("```")[1].split("```")[0]
             
             questions = json.loads(content.strip())
-            return questions if isinstance(questions, list) else []
-        except:
-            print(f"Failed to parse quiz JSON: {content[:200]}")
+            
+            # Validate questions
+            if isinstance(questions, list) and len(questions) > 0:
+                logger.info(f"Generated {len(questions)} quality questions")
+                return questions
+            else:
+                logger.warning("No valid questions generated")
+                return []
+                
+        except Exception as e:
+            logger.error(f"Quiz generation failed: {e}", exc_info=True)
+            print(f"Failed to parse quiz JSON: {str(e)}")
             return []
     
     async def chat_with_memory(

@@ -74,12 +74,12 @@ async def generate_quiz(
     # Use filename as topic if not provided
     quiz_topic = request.topic.strip() if request.topic.strip() else f"content from {pdf.filename}"
     
-    # Get relevant context (if no topic, get general content from PDF)
+    # Get relevant context (more chunks for comprehensive 20-question quizzes)
     context = await rag_service.get_document_context(
         user_id=str(current_user.id),
         file_id=pdf.file_id,
         topic=quiz_topic if request.topic.strip() else "",  # Empty topic = broader retrieval
-        top_k=15  # Get more chunks for general quizzes
+        top_k=30  # Increased to support up to 20 questions with comprehensive coverage
     )
     
     # Generate quiz using LangChain Agent
