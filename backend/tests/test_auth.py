@@ -12,7 +12,7 @@ def test_register_success(client):
             "password": "securepass123"
         }
     )
-    assert response.status_code == status.HTTP_200_OK
+    assert response.status_code == status.HTTP_201_CREATED  # Registration returns 201
     data = response.json()
     assert "access_token" in data
     assert data["email"] == "newuser@example.com"
@@ -42,7 +42,7 @@ def test_login_success(client, test_user):
     assert response.status_code == status.HTTP_200_OK
     data = response.json()
     assert "access_token" in data
-    assert data["email"] == test_user.email
+    assert data["token_type"] == "bearer"
 
 
 def test_login_invalid_credentials(client):

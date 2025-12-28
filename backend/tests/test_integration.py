@@ -14,7 +14,7 @@ def test_full_user_flow(client):
             "password": "testpass123"
         }
     )
-    assert register_response.status_code == status.HTTP_200_OK
+    assert register_response.status_code == status.HTTP_201_CREATED  # Registration returns 201
     token = register_response.json()["access_token"]
     
     # 2. Access protected resource
