@@ -1,18 +1,21 @@
 """
-Quiz router - Generate, submit, and track quizzes
+Quiz router - Generate, submit, and track quizzes with LangChain
 """
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import List
+from logging_config import get_logger
 
 from database.connection import get_db
 from database.models import User, PDF as PDFModel, Quiz as QuizModel, Weakness
 from auth.middleware import get_current_user
 from services.rag_service import rag_service
+from services.langchain_service import langchain_service
 from services.groq_client import groq_client
 
 router = APIRouter(prefix="/quiz", tags=["Quiz"])
+logger = get_logger(__name__)
 
 
 # Pydantic models
@@ -49,6 +52,12 @@ async def generate_quiz(
     db: Session = Depends(get_db)
 ):
     """Generate quiz from PDF using Groq"""
+    logger.info("Quiz generation requested", extra={
+        "user_id": str(current_user.id),
+        "pdf_id": request.pdf_id,
+        "difficulty": request.difficulty
+    })
+    
     # Verify PDF ownership
     pdf = db.query(PDFModel).filter(
         PDFModel.id == request.pdf_id,
@@ -56,6 +65,7 @@ async def generate_quiz(
     ).first()
     
     if not pdf:
+        logger.warning(f"PDF not found", extra={"pdf_id": request.pdf_id})
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="PDF not found"
@@ -72,8 +82,9 @@ async def generate_quiz(
         top_k=15  # Get more chunks for general quizzes
     )
     
-    # Generate quiz using Groq
-    questions = await groq_client.generate_quiz(
+    # Generate quiz using LangChain Agent
+    logger.info(f"Generating {request.num_questions} questions at {request.difficulty} difficulty")
+    questions = await langchain_service.generate_quiz_with_agent(
         context=context,
         topic=quiz_topic,
         num_questions=request.num_questions,

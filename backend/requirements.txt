@@ -18,6 +18,10 @@ passlib[bcrypt]==1.7.4
 
 # AI & ML
 groq==0.4.2
+# LangChain Framework (for agentic pipeline)
+langchain==0.1.0
+langchain-groq==0.0.1
+langchain-community==0.0.10
 chromadb==0.4.22
 sentence-transformers==2.3.1
 pypdf==3.17.4

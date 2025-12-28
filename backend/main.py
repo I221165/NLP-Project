@@ -1,11 +1,17 @@
 """
 CourseMaster AI - Production Backend
-Main FastAPI application
+Main FastAPI application with LangChain integration
 """
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from config import settings
 from database.connection import init_db
+from logging_config import setup_logging, get_logger
+import time
+
+# Setup logging
+setup_logging(level="INFO")
+logger = get_logger(__name__)
 
 # Import routers
 from routers import auth, pdf, chat, quiz, analytics
@@ -13,7 +19,7 @@ from routers import auth, pdf, chat, quiz, analytics
 # Initialize FastAPI app
 app = FastAPI(
     title="CourseMaster AI",
-    description="Production RAG-based tutoring platform with multi-user support",
+    description="Production RAG-based tutoring platform with LangChain agentic framework",
     version="2.0.0"
 )
 
@@ -27,6 +33,34 @@ app.add_middleware(
 )
 
 
+# Request logging middleware
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    """Log all HTTP requests and responses"""
+    start_time = time.time()
+    
+    # Log request
+    logger.info("Incoming request", extra={
+        "method": request.method,
+        "path": request.url.path,
+        "client": request.client.host if request.client else None
+    })
+    
+    # Process request
+    response = await call_next(request)
+    
+    # Log response
+    duration = (time.time() - start_time) * 1000  # ms
+    logger.info("Request completed", extra={
+        "method": request.method,
+        "path": request.url.path,
+        "status_code": response.status_code,
+        "duration": round(duration, 2)
+    })
+    
+    return response
+
+
 # Include routers
 app.include_router(auth.router, prefix=settings.API_V1_PREFIX)
 app.include_router(pdf.router, prefix=settings.API_V1_PREFIX)
@@ -38,20 +72,21 @@ app.include_router(analytics.router, prefix=settings.API_V1_PREFIX)
 @app.on_event("startup")
 async def startup_event():
     """Initialize services on startup"""
-    print("🚀 Starting CourseMaster AI...")
+    logger.info("Starting CourseMaster AI...")
     
     # Initialize database
     try:
         init_db()
+        logger.info("Database initialized successfully")
     except Exception as e:
-        print(f"⚠️  Database initialization: {e}")
-        print("   If using PostgreSQL, make sure it's running and DATABASE_URL is correct")
-        print("   Or switch to SQLite in .env file")
+        logger.error(f"Database initialization failed: {e}", exc_info=True)
+        logger.warning("If using PostgreSQL, ensure it's running and DATABASE_URL is correct")
     
-    print("✅ CourseMaster AI ready!")
-    print(f"📚 Groq Model: {settings.GROQ_MODEL}")
-    print(f"🔐 JWT Expiry: {settings.ACCESS_TOKEN_EXPIRE_MINUTES} minutes")
-    print(f"📡 CORS Origins: {settings.CORS_ORIGINS}")
+    logger.info("CourseMaster AI ready", extra={
+        "groq_model": settings.GROQ_MODEL,
+        "jwt_expiry_minutes": settings.ACCESS_TOKEN_EXPIRE_MINUTES,
+        "cors_origins": settings.CORS_ORIGINS
+    })
 
 
 @app.get("/")
