@@ -1,5 +1,5 @@
 """
-Chat router - Q&A system with LangChain RAG
+Chat router - Q&A system with RAG retrieval
 """
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -11,7 +11,8 @@ from logging_config import get_logger
 from database.connection import get_db
 from database.models import User, PDF as PDFModel, Chat as ChatModel
 from auth.middleware import get_current_user
-from services.langchain_service import langchain_service
+from services.rag_service import rag_service
+from services.groq_client import groq_client
 
 router = APIRouter(prefix="/chat", tags=["Chat"])
 logger = get_logger(__name__)
@@ -41,7 +42,7 @@ async def ask_question(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Ask a question about a PDF using LangChain RAG"""
+    """Ask a question about a PDF using RAG"""
     logger.info(f"Chat question received", extra={
         "user_id": str(current_user.id),
         "pdf_id": request.pdf_id
@@ -60,35 +61,29 @@ async def ask_question(
             detail="PDF not found"
         )
     
-    try:
-        # Use LangChain RAG chain
-        collection_name = f"user_{current_user.id}_file_{pdf.file_id}"
-        rag_chain = langchain_service.create_rag_chain(collection_name)
-        
-        # Query with LangChain
-        result = await rag_chain.ainvoke({"query": request.question})
-        
-        answer = result.get("result", "Sorry, I couldn't generate an answer.")
-        source_docs = result.get("source_documents", [])
-        
-        # Format sources
-        sources = [
-            {
-                "text": doc.page_content[:200],
-                "metadata": doc.metadata
-            }
-            for doc in source_docs[:3]
-        ]
-        
-        logger.info("Answer generated successfully", extra={
-            "answer_length": len(answer),
-            "num_sources": len(sources)
-        })
-        
-    except Exception as e:
-        logger.error(f"Error generating answer: {e}", exc_info=True)
-        answer = "Sorry, I encountered an error processing your question."
-        sources = []
+    # Retrieve relevant chunks using RAG (increased context for better answers)
+    retrieval_result = await rag_service.query_document(
+        user_id=str(current_user.id),
+        file_id=pdf.file_id,
+        query=request.question,
+        top_k=10  # Increased from 5 for more comprehensive answers
+    )
+    
+    chunks = retrieval_result.get("chunks", [])
+    chunk_texts = [chunk["text"] for chunk in chunks]
+    
+    # Generate answer using Groq
+    groq_result = await groq_client.answer_question(
+        question=request.question,
+        context_chunks=chunk_texts
+    )
+    
+    answer = groq_result.get("answer", "Sorry, I couldn't generate an answer.")
+    
+    logger.info("Answer generated successfully", extra={
+        "answer_length": len(answer),
+        "num_sources": len(chunks)
+    })
     
     # Get or create chat session
     chat = db.query(ChatModel).filter(
@@ -122,7 +117,7 @@ async def ask_question(
     
     return {
         "answer": answer,
-        "sources": sources,
+        "sources": chunks,
         "chat_id": str(chat.id)
     }
 

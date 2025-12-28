@@ -7,7 +7,7 @@ from database.models import Base, User
 from database.connection import get_db
 from main import app
 from fastapi.testclient import TestClient
-from auth.password import get_password_hash
+from auth.password import hash_password
 
 # Test database URL (SQLite in-memory)
 TEST_DATABASE_URL = "sqlite:///./test.db"
@@ -49,7 +49,7 @@ def test_user(db_session):
     """Create a test user"""
     user = User(
         email="test@example.com",
-        password_hash=get_password_hash("testpassword123")
+        password_hash=hash_password("testpassword123")
     )
     db_session.add(user)
     db_session.commit()

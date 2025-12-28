@@ -48,11 +48,20 @@ class LangChainService:
         Returns:
             RetrievalQA chain
         """
-        # Load vector store
+        # Use PersistentClient to avoid conflicts with existing ChromaDB instance
+        import chromadb
+        from chromadb.config import Settings as ChromaSettings
+        
+        chroma_client = chromadb.PersistentClient(
+            path=settings.CHROMA_PERSIST_DIR,
+            settings=ChromaSettings(anonymized_telemetry=False)
+        )
+        
+        # Load vector store with existing client
         vectorstore = Chroma(
+            client=chroma_client,
             collection_name=collection_name,
-            embedding_function=self.embeddings,
-            persist_directory=settings.CHROMA_PERSIST_DIR
+            embedding_function=self.embeddings
         )
         
         # Create retriever
