@@ -61,12 +61,12 @@ async def ask_question(
             detail="PDF not found"
         )
     
-    # Retrieve relevant chunks using RAG (increased context for better answers)
+    # Retrieve relevant chunks using RAG (get as many as possible for comprehensive answers)
     retrieval_result = await rag_service.query_document(
         user_id=str(current_user.id),
         file_id=pdf.file_id,
         query=request.question,
-        top_k=10  # Increased from 5 for more comprehensive answers
+        top_k=20  # Get most/all chunks for maximum context
     )
     
     chunks = retrieval_result.get("chunks", [])
