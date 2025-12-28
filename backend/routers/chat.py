@@ -72,8 +72,13 @@ async def ask_question(
     chunks = retrieval_result.get("chunks", [])
     chunk_texts = [chunk["text"] for chunk in chunks]
     
-    # Generate answer using Groq
-    groq_result = await groq_client.answer_question(
+    # Import comprehensive answer function
+    from services.comprehensive_answer import answer_question_comprehensive
+    
+    # Generate COMPREHENSIVE answer using ALL chunks
+    groq_result = await answer_question_comprehensive(
+        client=groq_client.client,
+        model=groq_client.model,
         question=request.question,
         context_chunks=chunk_texts
     )
